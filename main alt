@@ -1,0 +1,91 @@
+import tkinter as tk
+from tkinter import messagebox
+import winsound
+from datetime import datetime, timedelta
+import sys
+from PIL import Image, ImageTk
+
+class CountdownTimerApp:
+    def __init__(self, breaktime_countdown_seconds):
+        self.breaktime_countdown_seconds = breaktime_countdown_seconds
+        self.end_time = datetime.now() + timedelta(seconds=self.breaktime_countdown_seconds)
+        self.work_time_rest = 0
+        self.is_paused = False
+        self.imagepath = "utilities/"
+
+        self.create_window()
+        self.create_widgets()
+        self.countdown(self.end_time)
+
+    def create_window(self):
+        self.window = tk.Tk()
+        self.window.title("Countdown Timer")
+        self.window.geometry("200x100")
+        self.window.configure(bg="gray")
+
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+        taskbar_height = 75
+        self.window.geometry(f"200x100+{screen_width-215}+{screen_height-100-taskbar_height}")
+
+    def create_widgets(self):
+        self.work_time_label = tk.Label(self.window, text="Break Time", font=("Arial", 16), bg="gray")
+        self.work_time_label.pack()
+
+        self.label = tk.Label(self.window, font=("Arial", 24), bg="gray")
+        self.label.pack()
+
+        self.button_frame = tk.Frame(self.window, bg="gray")
+        self.button_frame.pack()
+
+        self.create_button(image="start.png", command=self.pause_countdown)
+        self.create_button(image="replay.png", command=self.play_countdown)
+        self.create_button(image="pause.png", command=self.reset_countdown)
+
+    def create_button(self, image, command):
+        image_path = self.imagepath + image
+        img = Image.open(image_path)
+        img = img.resize((25, 25))
+        photo = ImageTk.PhotoImage(img)
+        button = tk.Button(self.button_frame, image=photo, command=command)
+        button.image = photo
+        button.pack(side="left", padx=5)
+
+    def format_time(self, seconds):
+        hours = seconds // 3600
+        minutes = (seconds % 3600) // 60
+        seconds = seconds % 60
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+    def countdown(self, end_time):
+        remaining_time = end_time - datetime.now()
+        if remaining_time.total_seconds() >= 0 and not self.is_paused:
+            self.label.config(text=self.format_time(int(remaining_time.total_seconds())))
+            self.window.attributes("-topmost", True)
+            self.window.after(1000, self.countdown, end_time)
+        elif not self.is_paused:
+            winsound.PlaySound("utilities/notification_sound.wav", winsound.SND_FILENAME)
+            if messagebox.askquestion("Confirmation", "Resting is Over! Work Again?") == "yes":
+                subprocess.Popen(["python", "main.py"])
+                self.window.destroy()
+            self.window.destroy()
+        else:
+            self.work_time_rest = remaining_time.total_seconds()
+
+    def pause_countdown(self):
+        self.is_paused = True
+
+    def play_countdown(self):
+        if self.is_paused:
+            self.end_time = datetime.now() + timedelta(seconds=self.work_time_rest)
+            self.is_paused = False
+            self.countdown(self.end_time)
+
+    def reset_countdown(self):
+        subprocess.Popen(["python", "resttimecountdown.py", str(self.breaktime_countdown_seconds)])
+        self.window.destroy()
+
+if __name__ == "__main__":
+    breaktime_countdown_seconds = int(sys.argv[1])
+    app = CountdownTimerApp(breaktime_countdown_seconds)
+    app.window.mainloop()
